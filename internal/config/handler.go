@@ -50,9 +50,15 @@ type ButlerConfig struct {
 	HTTPAuthUser  string
 	HTTPAuthToken string
 	// some s3 specific stuff
-	S3Region           string
-	S3Bucket           string
-	Endpoints          []string
+	S3Region string
+	S3Bucket string
+	// some etcd specific stuff
+	Endpoints []string
+	// Some Mongo specific stuff
+	MongoUsername      string
+	MongoPassword      string
+	MongoConnectString string
+
 	InsecureSkipVerify bool
 }
 
@@ -218,7 +224,22 @@ func (bc *ButlerConfig) Init() error {
 	}
 	client.Method = method
 
-	switch bc.URL.Scheme {
+	switch strings.ToLower(bc.URL.Scheme) {
+	case "blob":
+		client.Method, err = methods.NewBlobMethodWithAccount(bc.URL.Host)
+		if err != nil {
+			return err
+		}
+	case "etcd":
+		client.Method, err = methods.NewEtcdMethodWithEndpoints(bc.Endpoints, bc.InsecureSkipVerify)
+		if err != nil {
+			return err
+		}
+	case "file":
+		client.Method, err = methods.NewFileMethodWithURL(bc.URL)
+		if err != nil {
+			return err
+		}
 	case "http", "https":
 		client.SetTimeout(bc.Timeout)
 		client.SetRetryMax(bc.Retries)
@@ -231,7 +252,7 @@ func (bc *ButlerConfig) Init() error {
 		m.AuthUser = bc.HTTPAuthUser
 		m.InsecureSkipVerify = bc.InsecureSkipVerify
 		client.Method = m
-	case "s3", "S3":
+	case "s3":
 		pathSplit := strings.Split(bc.URL.Path, "/")
 		bucket := pathSplit[0]
 		bc.SetRegionAndBucket(bc.S3Region, bucket)
@@ -239,18 +260,12 @@ func (bc *ButlerConfig) Init() error {
 		if err != nil {
 			return err
 		}
-	case "file":
-		client.Method, err = methods.NewFileMethodWithURL(bc.URL)
-		if err != nil {
-			return err
-		}
-	case "blob":
-		client.Method, err = methods.NewBlobMethodWithAccount(bc.URL.Host)
-		if err != nil {
-			return err
-		}
-	case "etcd":
-		client.Method, err = methods.NewEtcdMethodWithEndpoints(bc.Endpoints, bc.InsecureSkipVerify)
+	case "mongodb":
+		opts := &methods.MongoDBOpts{URL: bc.URL,
+			Password: bc.MongoPassword,
+			Username: bc.MongoUsername,
+			InsecureSkipVerify: bc.InsecureSkipVerify}
+		client.Method, err = methods.NewMongoDBMethodWithOptions(opts)
 		if err != nil {
 			return err
 		}

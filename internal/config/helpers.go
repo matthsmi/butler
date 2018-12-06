@@ -756,20 +756,22 @@ func NewConfigChanEvent() *ConfigChanEvent {
 
 func NewConfigClient(scheme string) (*ConfigClient, error) {
 	var c ConfigClient
-	switch scheme {
+	switch strings.ToLower(scheme) {
+	case "blob":
+		c.Scheme = "blob"
+	case "etcd":
+		c.Scheme = "etcd"
+	case "file":
+		c.Scheme = "file"
 	case "http", "https":
 		c.Scheme = "http"
 		c.HTTPClient = retryablehttp.NewClient()
 		c.HTTPClient.Logger.SetFlags(0)
 		c.HTTPClient.Logger.SetOutput(ioutil.Discard)
-	case "s3", "S3":
+	case "mongodb":
+		c.Scheme = "mongodb"
+	case "s3":
 		c.Scheme = "s3"
-	case "file":
-		c.Scheme = "file"
-	case "blob":
-		c.Scheme = "blob"
-	case "etcd":
-		c.Scheme = "etcd"
 	default:
 		errMsg := fmt.Sprintf("Unsupported butler config scheme: %s", scheme)
 		return &ConfigClient{}, errors.New(errMsg)

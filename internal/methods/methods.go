@@ -20,7 +20,6 @@ import (
 )
 
 type Method interface {
-	//Get(string) (*Response, error)
 	Get(*url.URL) (*Response, error)
 }
 
@@ -39,18 +38,19 @@ func (r Response) GetResponseStatusCode() int {
 
 func New(manager *string, method string, entry *string) (Method, error) {
 	method = strings.ToLower(method)
-	//log.Debugf("methods.New() manager=%v method=%v entry=%v", manager, method, entry)
-	switch method {
-	case "http", "https":
-		return NewHTTPMethod(manager, entry)
-	case "S3", "s3":
-		return NewS3Method(manager, entry)
-	case "file":
-		return NewFileMethod(manager, entry)
+	switch strings.ToLower(method) {
 	case "blob":
 		return NewBlobMethod(manager, entry)
 	case "etcd":
 		return NewEtcdMethod(manager, entry)
+	case "file":
+		return NewFileMethod(manager, entry)
+	case "http", "https":
+		return NewHTTPMethod(manager, entry)
+	case "mongodb":
+		return NewMongoDBMethod(manager, entry)
+	case "s3":
+		return NewS3Method(manager, entry)
 	default:
 		return NewGenericMethod(manager, entry)
 	}

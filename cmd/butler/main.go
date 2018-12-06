@@ -78,7 +78,9 @@ func main() {
 		configHTTPRetryWaitMax      = flag.String("http.retry_wait_max", fmt.Sprintf("%v", defaultHTTPRetryWaitMax), "The maximum amount of time to wait before attemping to retry the http config get operation.")
 		configHTTPAuthToken         = flag.String("http.auth_token", "", "HTTP auth token to use for HTTP authentication.")
 		configHTTPAuthType          = flag.String("http.auth_type", "", "HTTP auth type (eg: basic / digest / token-key) to use. If empty (by default) do not use HTTP authentication.")
-		configHTTPAuthUser          = flag.String("http.auth_user", "", "HTTP auth user to use for HTTP authentication")
+		configHTTPAuthUser          = flag.String("http.auth_user", "", "HTTP auth user to use for HTTP authentication.")
+		configMongoUsername         = flag.String("mongo.username", "", "Mongo Username.")
+		configMongoPassword         = flag.String("mongo.password", "", "Mongo Password.")
 		configS3Region              = flag.String("s3.region", "", "The S3 Region that the config file resides.")
 		configEtcdEndpoints         = flag.String("etcd.endpoints", "", "The endpoints to connect to etcd.")
 		configTlsInsecureSkipVerify = flag.Bool("tls.insecure-skip-verify", false, "Disable SSL verification for etcd and https.")
@@ -185,6 +187,10 @@ func main() {
 		newConfigEtcdEndpoints := environment.GetVar(*configEtcdEndpoints)
 		log.Debugf("main(): setting etcd endpoints=%v", newConfigEtcdEndpoints)
 		bc.SetEndpoints(strings.Split(newConfigEtcdEndpoints, ","))
+		bc.InsecureSkipVerify = *configTlsInsecureSkipVerify
+	case "mongodb":
+		bc.MongoPassword = environment.GetVar(*configMongoPassword)
+		bc.MongoUsername = environment.GetVar(*configMongoUsername)
 		bc.InsecureSkipVerify = *configTlsInsecureSkipVerify
 	}
 
