@@ -144,6 +144,36 @@ func (s *BlobTestSuite) TestNewBlobMethod(c *C) {
 	os.Unsetenv("ACCOUNT_KEY")
 }
 
+func (s *BlobTestSuite) TestNewBlobMethodWithNilValues(c *C) {
+	// should fail with error
+	method, err := NewBlobMethod(nil, nil)
+	c.Assert(err, NotNil)
+
+	// add key, should still fail with error due to
+	// no account
+	os.Setenv("ACCOUNT_KEY", "aGl5YWhpeWFoaXlh")
+	method, err = NewBlobMethod(nil, nil)
+	c.Assert(err, NotNil)
+
+	// add account name, should be OK.
+	os.Setenv("ACCOUNT_NAME", "stegentestblobva7")
+	method, err = NewBlobMethod(nil, nil)
+	m := method.(BlobMethod)
+	c.Assert(err, IsNil)
+	c.Assert(m.StorageAccount, Equals, "stegentestblobva7")
+	c.Assert(m.StorageKey, Equals, "aGl5YWhpeWFoaXlh")
+
+	// let's make account key not hex. should fail
+	os.Setenv("ACCOUNT_KEY", "stegentestblobva7")
+	os.Setenv("ACCOUNT_NAME", "stegentestblobva7")
+	method, err = NewBlobMethod(nil, nil)
+	c.Assert(err, NotNil)
+
+	// cleanup
+	os.Unsetenv("ACCOUNT_KEY")
+	os.Unsetenv("ACCOUNT_NAME")
+}
+
 func (s *BlobTestSuite) TestNewBlobMethodWithAccountAndKey(c *C) {
 	// load config
 	err := viper.ReadConfig(bytes.NewBuffer(TestViperConfigBlob))
@@ -154,7 +184,7 @@ func (s *BlobTestSuite) TestNewBlobMethodWithAccountAndKey(c *C) {
 	//entry := "test-manager.repo.blob"
 
 	// Let's setup a fake token
-	os.Setenv("BUTLER_STORAGE_TOKEN", "hiya")
+	os.Setenv("ACCOUNT_KEY", "aGl5YWhpeWFoaXlh")
 
 	method, err := NewBlobMethodWithAccountAndKey("stegentestblobva7", "aGl5YWhpeWFoaXlh")
 	m := method.(BlobMethod)
@@ -229,4 +259,12 @@ func (s *BlobTestSuite) TestGet(c *C) {
 
 	os.Unsetenv("BUTLER_STORAGE_TOKEN")
 	os.Unsetenv("BUTLER_STORAGE_ACCOUNT")
+}
+
+func (s *BlobTestSuite) TestGetScheme(c *C) {
+	opts := BlobMethodOpts{Scheme: "hithere",
+		AccountName: "foo",
+		AccountKey:  "bar"}
+
+	c.Assert(opts.GetScheme(), Equals, "hithere")
 }
