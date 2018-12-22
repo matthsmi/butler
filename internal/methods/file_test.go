@@ -179,3 +179,8 @@ func (s *FileTestSuite) TestGetFail(c *C) {
 	c.Assert(resp2.GetResponseStatusCode(), Equals, 504)
 	c.Assert(resp2.GetResponseBody(), IsNil)
 }
+
+func (s *FileTestSuite) TestGetScheme(c *C) {
+	opts := FileMethodOpts{Scheme: "foolio"}
+	c.Assert(opts.GetScheme(), Equals, "foolio")
+}

@@ -235,3 +235,9 @@ func (s *EtcdTestSuite) TestGetFail(c *C) {
 	c.Assert(resp2.GetResponseStatusCode(), Equals, 404)
 	c.Assert(resp2.GetResponseBody(), IsNil)
 }
+
+func (s *EtcdTestSuite) TestGetScheme(c *C) {
+	opts := EtcdMethodOpts{Endpoints: []string{"foo", "bar", "baz"},
+		Scheme: "foolio"}
+	c.Assert(opts.GetScheme(), Equals, "foolio")
+}

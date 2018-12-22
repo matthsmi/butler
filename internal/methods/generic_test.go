@@ -40,3 +40,8 @@ func (s *GenericTestSuite) TestGet(c *C) {
 	c.Assert(err2, NotNil)
 	c.Assert(resp, IsNil)
 }
+
+func (s *GenericTestSuite) TestGetScheme(c *C) {
+	opts := GenericMethodOpts{Scheme: "foolio"}
+	c.Assert(opts.GetScheme(), Equals, "generic")
+}

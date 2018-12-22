@@ -65,3 +65,8 @@ func (s *HTTPTestSuite) TestdigestDigestParts(c *C) {
 	c.Assert(res["nonce"], Equals, "5b25940d5b154da5")
 	c.Assert(len(res), Equals, 3)
 }
+
+func (s *HTTPTestSuite) TestGetScheme(c *C) {
+	opts := HTTPMethodOpts{Scheme: "foolio"}
+	c.Assert(opts.GetScheme(), Equals, "foolio")
+}
