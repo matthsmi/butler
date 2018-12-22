@@ -133,14 +133,6 @@ func (b BlobMethod) Get(u *url.URL) (*Response, error) {
 	return &res, nil
 }
 
-func (b *BlobMethod) SetStorageAccount(a string) {
-	b.StorageAccount = environment.GetVar(a)
-}
-
-func (b *BlobMethod) SetStorageKey(k string) {
-	b.StorageKey = environment.GetVar(k)
-}
-
 func (o BlobMethodOpts) GetScheme() string {
 	return o.Scheme
 }
