@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -62,7 +61,6 @@ type CommandReloader struct {
 
 type CommandReloaderOpts struct {
 	Command  string `json:"command"`
-	ExitCode string `json:"exit-code"`
 }
 
 func (r CommandReloader) Reload() error {
@@ -91,22 +89,17 @@ func (r CommandReloader) Reload() error {
 		return NewReloaderError().WithMessage(err.Error()).WithCode(1)
 	}
 
-	expectedRetCode, err := strconv.Atoi(o.ExitCode)
-	if err != nil {
-		log.Errorf("Cannot convert 'exit-code' to int. err=%v", err.Error())
-		return NewReloaderError().WithMessage(err.Error()).WithCode(1)
-	}
-
 	status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus)
 	if !ok {
 		log.Errorf("Cannot convert command exit code.")
 		return NewReloaderError().WithMessage(err.Error()).WithCode(1)
 	}
 
-	if expectedRetCode != status.ExitStatus() {
-		msg := fmt.Sprintf("Expected command return code of %v got %v", expectedRetCode, status.ExitStatus())
+	// the script should exit with the proper exit code
+	if status.ExitStatus() != 0 {
+		msg := fmt.Sprintf("Expected command exit code of 0 got %v", status.ExitStatus())
 		log.Error(msg)
-		return NewReloaderError().WithMessage(msg).WithCode(expectedRetCode)
+		return NewReloaderError().WithMessage(msg).WithCode(status.ExitStatus())
 	}
 
 	log.Debugf("Command::Reload(): stdout=%#v stderr=%#v", cmdStdout.String(), cmdStderr.String())
