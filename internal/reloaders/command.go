@@ -26,9 +26,10 @@ import (
 
 func NewCommandReloader(manager string, method string, entry []byte) (Reloader, error) {
 	var (
-		err    error
-		result CommandReloader
-		opts   CommandReloaderOpts
+		err      error
+		result   CommandReloader
+		opts     CommandReloaderOpts
+		isString bool
 	)
 
 	err = json.Unmarshal(entry, &opts)
@@ -36,13 +37,39 @@ func NewCommandReloader(manager string, method string, entry []byte) (Reloader, 
 		return result, err
 	}
 
-	file, err := os.Lstat(opts.Command)
-	if err != nil {
-		return result, fmt.Errorf("Cannot use %v as reloader. err=%v", opts.Command, err.Error())
+	switch opts.Command.(type) {
+	case string:
+		isString = true
+	case []interface{}:
+		isString = false
+	default:
+		return result, fmt.Errorf("Command reloader cannot determine the command type [%T].", opts.Command)
 	}
 
-	if file.IsDir() {
-		return result, fmt.Errorf("%v is a directory. It must be an executable file.")
+	if isString {
+		cmd := opts.Command.(string)
+		cmdSplit := strings.Split(cmd, " ")
+		file, err := os.Lstat(cmdSplit[0])
+		if err != nil {
+			return result, fmt.Errorf("Cannot use %v as reloader. err=%v", cmd, err.Error())
+		}
+
+		if file.IsDir() {
+			return result, fmt.Errorf("%v is a directory. It must be an executable file.")
+		}
+	} else {
+		cmds := opts.Command.([]interface{})
+		for _, cmd := range cmds {
+			cmdSplit := strings.Split(cmd.(string), " ")
+			file, err := os.Lstat(cmdSplit[0])
+			if err != nil {
+				return result, fmt.Errorf("Cannot use %v as reloader. err=%v", cmd, err.Error())
+			}
+
+			if file.IsDir() {
+				return result, fmt.Errorf("%v is a directory. It must be an executable file.")
+			}
+		}
 	}
 
 	result.Manager = manager
@@ -60,49 +87,49 @@ type CommandReloader struct {
 }
 
 type CommandReloaderOpts struct {
-	Command  string `json:"command"`
+	Command interface{} `json:"command"`
+}
+
+type Command struct {
+	RetCode int
+	StdOut  string
+	StdErr  string
 }
 
 func (r CommandReloader) Reload() error {
 	var (
-		cmdStdout bytes.Buffer
-		cmdStderr bytes.Buffer
-		err       error
-		status    syscall.WaitStatus
+		err      error
+		isString bool
 	)
+
 	o := r.GetOpts().(CommandReloaderOpts)
-	cmdSplit := strings.Split(o.Command, " ")
-	args := cmdSplit[1:]
-
-	cmd := exec.Command(cmdSplit[0], args...)
-	cmd.Stdout = &cmdStdout
-	cmd.Stderr = &cmdStderr
-
-	if err := cmd.Start(); err != nil {
-		log.Errorf("Cannot execute reloader command. err=%v", err.Error())
-		return NewReloaderError().WithMessage(err.Error()).WithCode(1)
+	switch o.Command.(type) {
+	case string:
+		isString = true
+	case []interface{}:
+		isString = false
 	}
 
-	err = cmd.Wait()
-	if err != nil {
-		log.Errorf("Cannot wait for reloader command. err=%v", err.Error())
-		return NewReloaderError().WithMessage(err.Error()).WithCode(1)
+	if isString {
+		res := runCommand(o.Command.(string))
+		if res.RetCode != 0 {
+			msg := fmt.Sprintf("Expected command exit code of 0 got %v", res.RetCode)
+			log.Error(msg)
+			return NewReloaderError().WithMessage(msg).WithCode(res.RetCode)
+		}
+		log.Debugf("Command::Reload(): SUCCESS stdout=%#v stderr=%#v", res.StdOut, res.StdErr)
+	} else {
+		cmds := o.Command.([]interface{})
+		for _, cmd := range cmds {
+			res := runCommand(cmd.(string))
+			if res.RetCode != 0 {
+				msg := fmt.Sprintf("Expected command exit code of 0 got %v", res.RetCode)
+				log.Error(msg)
+				return NewReloaderError().WithMessage(msg).WithCode(res.RetCode)
+			}
+			log.Debugf("Command::Reload(): SUCCESS stdout=%#v stderr=%#v", res.StdOut, res.StdErr)
+		}
 	}
-
-	status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus)
-	if !ok {
-		log.Errorf("Cannot convert command exit code.")
-		return NewReloaderError().WithMessage(err.Error()).WithCode(1)
-	}
-
-	// the script should exit with the proper exit code
-	if status.ExitStatus() != 0 {
-		msg := fmt.Sprintf("Expected command exit code of 0 got %v", status.ExitStatus())
-		log.Error(msg)
-		return NewReloaderError().WithMessage(msg).WithCode(status.ExitStatus())
-	}
-
-	log.Debugf("Command::Reload(): stdout=%#v stderr=%#v", cmdStdout.String(), cmdStderr.String())
 	return err
 }
 
@@ -122,4 +149,37 @@ func (r CommandReloader) SetOpts(o ReloaderOpts) bool {
 func (r CommandReloader) SetCounter(c int) Reloader {
 	r.Counter = c
 	return r
+}
+
+func runCommand(command string) Command {
+	var (
+		cmdStdout bytes.Buffer
+		cmdStderr bytes.Buffer
+		err       error
+		status    syscall.WaitStatus
+	)
+	cmdSplit := strings.Split(command, " ")
+	args := cmdSplit[1:]
+
+	cmd := exec.Command(cmdSplit[0], args...)
+	cmd.Stdout = &cmdStdout
+	cmd.Stderr = &cmdStderr
+
+	if err := cmd.Start(); err != nil {
+		return Command{RetCode: 1, StdErr: fmt.Sprintf("Cannot execute reloader command. err=%v", err.Error())}
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		return Command{RetCode: 1, StdErr: fmt.Sprintf("Cannot wait for reloader command. err=%v", err.Error())}
+	}
+
+	status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus)
+	if !ok {
+		return Command{RetCode: 1, StdErr: fmt.Sprintf("Cannot convert command exit code.")}
+	}
+
+	return Command{RetCode: status.ExitStatus(),
+		StdOut: cmdStdout.String(),
+		StdErr: cmdStderr.String()}
 }
